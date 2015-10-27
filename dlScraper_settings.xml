@@ -1,0 +1,86 @@
+<root>
+
+	<moviesFolder folder="H:/Filme/" />
+
+	<dlFolder folder="F:/Downloads/" />
+	<dlFolder folder="H:/Downloads/" />
+
+	<seriesFolder folder="F:/Serien/">
+
+		<alias seriesName="Game of Thrones" aliasName="got" />
+		<alias seriesName="New Girl" aliasName="ng" />
+		<alias seriesName="Sword Art Online" aliasName="sao" />
+		<alias seriesName="South Park" aliasName="sp" />
+		<alias seriesName="Suits" aliasName="suits" />
+		<alias seriesName="The Walking Dead" aliasName="twd" />
+		<alias seriesName="House of Cards" aliasName="hoc" />
+		<alias seriesName="Sherlock" aliasName="sherlock" />
+		<alias seriesName="Orange Is The New Black" aliasName="oitnb" />
+		<alias seriesName="Parks and Recreation" aliasName="par" />
+		<alias seriesName="Planetes" aliasName="planetes" />
+		<alias seriesName="Tatami Galaxy" aliasName="tge" />
+		<alias seriesName="Angel Beats" aliasName="AnBe" />
+		<alias seriesName="Silicon Valley" aliasName="sv" />
+		<alias seriesName="Psycho Pass" aliasName="pspa" />
+		<alias seriesName="VGHS" aliasName="vghs" />
+		<alias seriesName="Robotics Notes" aliasName="robnotes" />
+		<alias seriesName="Terror in Resonance" aliasName="terror" />
+		<alias seriesName="Onegai Twins" aliasName="ontw" />
+		<alias seriesName="The Melancholy of Haruhi Suzumiya" aliasName="melancholy" />
+		<alias seriesName="Serial Experiments Lain" aliasName="selain" />
+		<alias seriesName="Homeland" aliasName="homeland" />
+		<alias seriesName="The Office (US)" aliasName="office" />
+		<alias seriesName="Marco Polo (2014)" aliasName="marco" />
+		<alias seriesName="I cant Understand What My Husband is Saying" aliasName="husband" />
+		<alias seriesName="Noucome" aliasName="nuocome" />
+		<alias seriesName="The Comic Artist and His Assistants" aliasName="mangaka" />
+		<alias seriesName="Nisekoi" aliasName="nisekoi" />
+		<alias seriesName="The Legend of Korra" aliasName="korra" />
+		<alias seriesName="Avatar - The Last Airbender" aliasName="avatar" />
+		<alias seriesName="Texhnolyze" aliasName="texh" />
+		<alias seriesName="Der Tatortreiniger" aliasName="tatortreiniger" />
+		<alias seriesName="Vikings" aliasName="vikings" />
+		<alias seriesName="Better Call Saul" aliasName="saul" />
+		<alias seriesName="Malcolm in the Middle" aliasName="malcolm" />
+
+	</seriesFolder>
+
+	<seriesFolder folder="H:/Serien/">
+
+		<alias seriesName="The Big Bang Theory" aliasName="tbbt" />
+		<alias seriesName="House" aliasName="house" />
+		<alias seriesName="No Game No Life" aliasName="ngnl" />
+		<alias seriesName="Parasyte -the maxim-" aliasName="parasyte" />
+		<alias seriesName="Hyouka" aliasName="hyouka" />
+		<alias seriesName="Sound of the Sky" aliasName="sots" />
+		<alias seriesName="The Network" aliasName="netzwerk" />
+		<alias seriesName="Tokyo Ghoul" aliasName="ghoul" />
+		<alias seriesName="Is It Wrong to Try to Pick Up Girls in a Dungeon" aliasName="dndom" />
+		<alias seriesName="Fate Zero" aliasName="fatezero" />
+		<alias seriesName="Durarara" aliasName="durarara" />
+		<alias seriesName="Myself ; Yourself" aliasName="msys" />
+		<alias seriesName="Bakemonogatari" aliasName="bakemonogatari" />
+		<alias seriesName="Dragon Ball Super" aliasName="dbs" />
+		<alias seriesName="Golden Time" aliasName="goldentime" />
+		<alias seriesName="BoJack Horseman" aliasName="bojack" />
+		<alias seriesName="Kill la Kill" aliasName="kik" />
+		<alias seriesName="True Detective" aliasName="truedetective" />
+		<alias seriesName="The Scene" aliasName="scene" />
+		<alias seriesName="Usagi Drop" aliasName="usagi" />
+		<alias seriesName="Family Guy" aliasName="famguy" />
+		<alias seriesName="Fullmetal Alchemist Brotherhood" aliasName="brotherhood" />
+		<alias seriesName="Double Fine Adventure" aliasName="doublefine" />
+		<alias seriesName="Wagnaria" aliasName="working" />
+		<alias seriesName="Kyoukai no Kanata" aliasName="knk" />
+		<alias seriesName="Heaven's Memo Pad" aliasName="kaminomemo" />
+		<alias seriesName="Darker Than Black" aliasName="dtb" />
+		<alias seriesName="Genshiken" aliasName="genshiken" />
+		<alias seriesName="Gakkou Gurashi" aliasName="gakkou" />
+		<alias seriesName="One-Punch Man" aliasName="opm" />
+		<alias seriesName="Hand of God" aliasName="hog" />
+		<alias seriesName="Life is Strange" aliasName="gronkh_lis" />
+		<alias seriesName="Minecraft Story Mode" aliasName="gronkh_ms" />
+
+	</seriesFolder>
+
+</root>
