@@ -48,6 +48,8 @@ public class Main {
 	private static HashMap<String, Show> shows;
 	private static HashMap<String, String> subNeed;
 	
+	public static HashMap<String, CustomScraper> customScrapers;
+	
 	private static List<String> seriesAdded, dlDirs;
 	
 	private static HashMap<String, List<Episode>> newEpisodes;
@@ -57,6 +59,10 @@ public class Main {
 	private static final int MAX_THREADS = Math.max(Runtime.getRuntime().availableProcessors()-1, 1);
 	
 	public static void main(String[] args) {
+		
+		customScrapers = new HashMap<String, CustomScraper>();
+		
+		Gronkh.load();
 		
 		System.out.println("\nDownload-Scraper v0.69 by Deconimus\n");
 		
@@ -121,6 +127,8 @@ public class Main {
 						
 						curAlias = str;
 						
+						CustomScraper customScraper = getCustomScraper(curAlias);
+						
 						List<File> dirFiles = Files.getFilesRecursive(file.getPath(), f -> isVideoFile(f));
 						List<File> dirFilesPics = Files.getFilesRecursive(file.getPath(), f -> isPicture(f));
 						
@@ -156,9 +164,9 @@ public class Main {
 								
 							}
 							
-							if (isGronkh(curAlias)) {
+							if (customScraper != null) {
 								
-								Gronkh.showNFO(showDir, shows.get(curAlias).name);
+								customScraper.createShowNFO(showDir, shows.get(curAlias).name);
 								
 								GoogleImages.fetchFanart(shows.get(curAlias).name, showDir);
 								GoogleImages.fetchPoster(shows.get(curAlias).name, showDir);
@@ -179,9 +187,9 @@ public class Main {
 							
 							String title = "";
 							
-							if (isGronkh(curAlias)) {
+							if (customScraper != null) {
 								
-								title = Gronkh.getEpisodeTitle(subFile.getName());
+								title = customScraper.getEpisodeTitle(subFile.getName());
 								
 							}
 							
@@ -204,9 +212,9 @@ public class Main {
 							
 							File episodeFile = new File(seasonDir.getPath()+"/"+fileName+ext);
 							
-							if (isGronkh(curAlias)) {
+							if (customScraper != null) {
 								
-								Gronkh.episodeNFO(info, title, fileName, seasonDir);
+								customScraper.createEpisodeNFO(info, title, fileName, seasonDir);
 								
 							}
 							
@@ -619,9 +627,11 @@ public class Main {
 	
 	private static int[] getEpisodeInfo(String name, File folder, String alias, boolean first) {
 		
-		if (isGronkh(alias)) {
+		CustomScraper cScraper = getCustomScraper(alias);
+		
+		if (cScraper != null) {
 			
-			return Gronkh.getEpisodeInfo(name);
+			return cScraper.getEpisodeInfo(name);
 		}
 		
 		char[] folderChars = folder.getName().toLowerCase().toCharArray();
@@ -933,9 +943,20 @@ public class Main {
 		
 	}
 	
-	public static boolean isGronkh(String alias) {
+	public static CustomScraper getCustomScraper(String alias) {
 		
-		return alias.toLowerCase().trim().startsWith("gronkh_");
+		if (alias.contains("_")) {
+			
+			String prefix = alias.toLowerCase().substring(0, alias.indexOf('_'));
+			
+			if (customScrapers.containsKey(prefix)) {
+				
+				return customScrapers.get(prefix);
+			}
+			
+		}
+		
+		return null;
 	}
 	
 }

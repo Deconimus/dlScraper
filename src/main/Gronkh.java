@@ -9,7 +9,7 @@ import org.dom4j.Element;
 import org.dom4j.io.OutputFormat;
 import org.dom4j.io.XMLWriter;
 
-public class Gronkh {
+public class Gronkh implements CustomScraper {
 
 	/** Older pattern: 
 	 * "Let's Play {gametitle} #{epnr 3 digits} [Deutsch][HD] - {eptitle}" */
@@ -19,7 +19,13 @@ public class Gronkh {
 	 * "{gametitle caps} [{epnr}] - {eptitle} [unicode-*] Let's Play {gametitle}" */
 	public static final int PATTERN_1 = 1;
 	
-	public static int[] getEpisodeInfo(String fileName) {
+	public static void load() {
+		
+		Main.customScrapers.put("gronkh", new Gronkh());
+	}
+	
+	@Override
+	public int[] getEpisodeInfo(String fileName) {
 
 		int pattern = getPattern(fileName);
 		
@@ -55,7 +61,8 @@ public class Gronkh {
 		return new int[]{season, episode};
 	}
 	
-	public static String getEpisodeTitle(String fileName) {
+	@Override
+	public String getEpisodeTitle(String fileName) {
 		
 		int pattern = getPattern(fileName);
 		
@@ -79,66 +86,16 @@ public class Gronkh {
 		return title;
 	}
 	
-	public static void showNFO(File dir, String showName) {
+	@Override
+	public void createShowNFO(File dir, String showName) {
 		
-		if (!dir.exists()) { return; }
-		
-		File nfo = new File(dir.getPath()+"/tvshow.nfo");
-		
-		if (!nfo.exists()) {
-			
-			Document doc =  DocumentHelper.createDocument();
-			
-			Element root = doc.addElement("tvshow");
-			
-			root.addElement("title").setText(showName);
-			root.addElement("plot").setText("---Let's Play by Gronkh---");
-			root.addElement("genre").setText("Lets Play / Gaming");
-			root.addElement("studio").setText("Gronkh");
-			
-			try {
-				
-				OutputFormat format = OutputFormat.createPrettyPrint();
-				
-				XMLWriter writer = new XMLWriter(new FileWriter(nfo), format);
-				writer.write(doc);
-				writer.close();
-				
-			} catch (Exception | Error e) { e.printStackTrace(); }
-			
-		}
-		
+		XBMCMetadata.createShowNFO(dir, showName, "---Let's Play by Gronkh---");
 	}
 	
-	public static void episodeNFO(int[] info, String title, String fileName, File seasonDir) {
+	@Override
+	public void createEpisodeNFO(int[] info, String title, String fileName, File seasonDir) {
 		
-		if (!seasonDir.exists()) { return; }
-		
-		File nfo = new File(seasonDir.getPath()+"/"+fileName+".nfo");
-		
-		if (!nfo.exists()) {
-			
-			Document doc =  DocumentHelper.createDocument();
-			
-			Element root = doc.addElement("episodedetails");
-			
-			root.addElement("title").setText(title);
-			root.addElement("season").setText(info[0]+"");
-			root.addElement("episode").setText(info[1]+"");
-			root.addElement("director").setText("Gronkh");
-			
-			try {
-				
-				OutputFormat format = OutputFormat.createPrettyPrint();
-				
-				XMLWriter writer = new XMLWriter(new FileWriter(nfo), format);
-				writer.write(doc);
-				writer.close();
-				
-			} catch (Exception | Error e) { e.printStackTrace(); }
-			
-		}
-		
+		XBMCMetadata.createEpisodeNFO(info, title, fileName, seasonDir);
 	}
 	
 	private static int getPattern(String fileName) {
