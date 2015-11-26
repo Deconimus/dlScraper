@@ -9,6 +9,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -644,18 +645,13 @@ public class Main {
 		
 		char[] folderChars = folder.getName().toLowerCase().toCharArray();
 		
+		List<String> wordsToDiscard = Arrays.asList( "x264", "h.264", "h264", "x265", "h.265", "h265", "m4a" );
+		
 		for (int i = 0; i < nameLC.length; i++) {
 		
-			nameLC[i] = nameLC[i].replace("x264", "");
-			nameLC[i] = nameLC[i].replace("h.264", "");
-			nameLC[i] = nameLC[i].replace("h264", "");
-			
-			nameLC[i] = nameLC[i].replace("x265", "");
-			nameLC[i] = nameLC[i].replace("h.265", "");
-			nameLC[i] = nameLC[i].replace("h265", "");
-			
-			nameLC[i] = nameLC[i].replace("m4a", "");
-			
+			for (int j = 0; j < wordsToDiscard.size(); j++ ) {
+				nameLC[i] = nameLC[i].replace(wordsToDiscard.get(j), "");
+			}
 		}
 		
 		char[][] chars = new char[2][];
