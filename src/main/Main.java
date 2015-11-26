@@ -35,6 +35,7 @@ import visionCore.util.Files;
 
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.net.URLDecoder;
 import java.nio.file.CopyOption;
 import java.nio.file.StandardCopyOption;
 
@@ -196,6 +197,7 @@ public class Main {
 							if (title.length() > 0) {
 								
 								fileName += " - " + title;
+								fileName = cleanseFileName(fileName);
 								
 								for (File f : dirFilesPics) {
 									
@@ -521,7 +523,11 @@ public class Main {
 	
 	private static List<Element> readSettingsXML() {
 		
-		File file = new File("dlScraper_settings.xml");
+		String path = Main.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+		path = path.replace("%20", " ");
+		path = path.substring(1, path.lastIndexOf('/'));
+		
+		File file = new File(path+"/dlScraper_settings.xml");
 		
 		if (!file.exists()) {
 			
@@ -634,42 +640,63 @@ public class Main {
 			return cScraper.getEpisodeInfo(name);
 		}
 		
+		String[] nameLC = new String[]{ name.toLowerCase(), folder.getName().toLowerCase() };
+		
 		char[] folderChars = folder.getName().toLowerCase().toCharArray();
 		
-		String nameLC = name.toLowerCase();
-		char[] chars = nameLC.toCharArray();
+		for (int i = 0; i < nameLC.length; i++) {
+		
+			nameLC[i] = nameLC[i].replace("x264", "");
+			nameLC[i] = nameLC[i].replace("h.264", "");
+			nameLC[i] = nameLC[i].replace("h264", "");
+			
+			nameLC[i] = nameLC[i].replace("x265", "");
+			nameLC[i] = nameLC[i].replace("h.265", "");
+			nameLC[i] = nameLC[i].replace("h265", "");
+			
+			nameLC[i] = nameLC[i].replace("m4a", "");
+			
+		}
+		
+		char[][] chars = new char[2][];
+		chars[0] = nameLC[0].toCharArray();
+		chars[1] = nameLC[1].toCharArray();
 		
 		String showLC = shows.get(alias).name.toLowerCase();
 		
-		for (int i = 0; i < chars.length-4; i++) {
-			
-			if (chars[i] == 's') {
+		for (int n = 0; n < nameLC.length; n++) {
+		
+			for (int i = 0; i < chars[n].length-4; i++) {
 				
-				if (Character.isDigit(chars[i+1]) && Character.isDigit(chars[i+2])) {
+				if (chars[n][i] == 's') {
 					
-					if ((chars[i+3] == 'e') && Character.isDigit(chars[i+4])) {
+					if (Character.isDigit(chars[n][i+1]) && Character.isDigit(chars[n][i+2])) {
 						
-						String int2parse = chars[i+3]+"";
-						
-						for (int j = i+4; j < chars.length && Character.isDigit(chars[j]); j++) {
+						if ((chars[n][i+3] == 'e') && Character.isDigit(chars[n][i+4])) {
 							
-							int2parse += chars[j];
+							String int2parse = chars[n][i+3]+"";
+							
+							for (int j = i+4; j < chars[n].length && Character.isDigit(chars[n][j]); j++) {
+								
+								int2parse += chars[n][j];
+								
+							}
+							
+							return new int[]{Integer.parseInt(chars[n][i+1]+""+chars[n][i+2]), Integer.parseInt(chars[n][i+4]+""+chars[n][i+5])};
+							
+						} else if ((chars[n][i+2] == 'e') && Character.isDigit(chars[n][i+3])) {
+							
+							String int2parse = chars[n][i+3]+"";
+							
+							for (int j = i+4; j < chars[n].length && Character.isDigit(chars[n][j]); j++) {
+								
+								int2parse += chars[n][j];
+								
+							}
+							
+							return new int[]{Integer.parseInt(chars[n][i+1]+""+chars[n][i+2]), Integer.parseInt(chars[n][i+3]+""+chars[n][i+4])};
 							
 						}
-						
-						return new int[]{Integer.parseInt(chars[i+1]+""+chars[i+2]), Integer.parseInt(chars[i+4]+""+chars[i+5])};
-						
-					} else if ((chars[i+2] == 'e') && Character.isDigit(chars[i+3])) {
-						
-						String int2parse = chars[i+3]+"";
-						
-						for (int j = i+4; j < chars.length && Character.isDigit(chars[j]); j++) {
-							
-							int2parse += chars[j];
-							
-						}
-						
-						return new int[]{Integer.parseInt(chars[i+1]+""+chars[i+2]), Integer.parseInt(chars[i+3]+""+chars[i+4])};
 						
 					}
 					
@@ -678,8 +705,6 @@ public class Main {
 			}
 			
 		}
-		
-		//And here the nerve wrecking anime scraping begins..
 		
 		int season = 1;
 		
@@ -694,193 +719,211 @@ public class Main {
 			
 		}
 		
-		//
+		//And here the nerve wrecking anime scraping begins..
 		
-		for (int i = 0; i < chars.length-3; i++) {
-			
-			if (chars[i] == 'e' && Character.isDigit(chars[i+1]) && Character.isDigit(chars[i+2])) {
+		for (int n = 0; n < nameLC.length; n++) {
+		
+			for (int i = 0; i < chars[n].length-3; i++) {
 				
-				String int2parse = chars[i+1]+""+chars[i+2];
-				
-				for (int j = i+3; j < chars.length-3 && Character.isDigit(chars[j]); j++) {
-					int2parse += ""+chars[j];
+				if (chars[n][i] == 'e' && Character.isDigit(chars[n][i+1]) && Character.isDigit(chars[n][i+2])) {
+					
+					String int2parse = chars[n][i+1]+""+chars[n][i+2];
+					
+					for (int j = i+3; j < chars[n].length-3 && Character.isDigit(chars[n][j]); j++) {
+						int2parse += ""+chars[n][j];
+					}
+					
+					return new int[]{season, Integer.parseInt(int2parse)};
+					
 				}
-				
-				return new int[]{season, Integer.parseInt(int2parse)};
 				
 			}
 			
 		}
 		
-		for (int i = 0; i < chars.length-3; i++) {
+		for (int n = 0; n < nameLC.length; n++) {
+		
+			for (int i = 0; i < chars[n].length-3; i++) {
+				
+				if ((chars[n][i] == 'e' && chars[n][i+1] == 'p') && (Character.isDigit(chars[n][i+2]) || 
+					(chars[n][i+2] == '.' && ((chars[n][i+3] == ' ' && Character.isDigit(chars[n][i+4])) || Character.isDigit(chars[n][i+3]))))) {
+	
+					String int2parse = "";
+					
+					boolean numbers = false;
+					
+					for (int j = i+2; j < chars[n].length; j++) {
+						
+						if (Character.isDigit(chars[n][j])) {
+							
+							int2parse += chars[n][j]+"";
+							if (!numbers) { numbers = true; }
+								
+						} else if (numbers) {
+							
+							break;
+							
+						}
+						
+					}
+					
+					return new int[]{season, Integer.parseInt(int2parse)};
+					
+				}
+				
+			}
 			
-			if ((chars[i] == 'e' && chars[i+1] == 'p') && (Character.isDigit(chars[i+2]) || 
-				(chars[i+2] == '.' && ((chars[i+3] == ' ' && Character.isDigit(chars[i+4])) || Character.isDigit(chars[i+3]))))) {
-
+		}
+		
+		for (int n = 0; n < nameLC.length; n++) {
+		
+			if (nameLC[n].contains("folge") || nameLC[n].contains("episode")) {
+				
+				String kw = "episode";
+				if (nameLC[n].contains("folge")) { kw = "folge"; }
+				
 				String int2parse = "";
 				
-				boolean numbers = false;
-				
-				for (int j = i+2; j < chars.length; j++) {
+				for (int i = nameLC[n].indexOf(kw) + kw.length(); i < chars[n].length; i++) {
 					
-					if (Character.isDigit(chars[j])) {
-						
-						int2parse += chars[j]+"";
-						if (!numbers) { numbers = true; }
-							
-					} else if (numbers) {
-						
+					if (Character.isDigit(chars[n][i])) {
+						int2parse += chars[n][i];
+					} else if (int2parse.length() > 0) {
 						break;
-						
 					}
 					
 				}
 				
-				return new int[]{season, Integer.parseInt(int2parse)};
+				if (int2parse.length() > 0) {
+					return new int[]{season, Integer.parseInt(int2parse)};
+				} else { return null; }
 				
 			}
-			
-		}
-		
-		if (nameLC.contains("folge") || nameLC.contains("episode")) {
-			
-			String kw = "episode";
-			if (nameLC.contains("folge")) { kw = "folge"; }
-			
-			String int2parse = "";
-			
-			for (int i = nameLC.indexOf(kw) + kw.length(); i < chars.length; i++) {
-				
-				if (Character.isDigit(chars[i])) {
-					int2parse += chars[i];
-				} else if (int2parse.length() > 0) {
-					break;
-				}
-				
-			}
-			
-			if (int2parse.length() > 0) {
-				return new int[]{season, Integer.parseInt(int2parse)};
-			} else { return null; }
 			
 		}
 		
 		// All hail the Regex Generator: http://regex.inginf.units.it
 		
-		Pattern pattern = Pattern.compile("\\d++(?= )|12");
-		Matcher matcher = pattern.matcher(nameLC);
-		if (matcher.find()) {
-		    
-			return new int[]{season, Integer.parseInt(matcher.group(0))};
-			
-		}
+		for (int n = 0; n < nameLC.length; n++) {
 		
-		if (nameLC.contains(alias.toLowerCase()) || nameLC.contains(showLC)) {
-			
-			char[] nc = null;
-			
-			if (nameLC.contains(alias.toLowerCase())) {
-				
-				String n = nameLC.substring(nameLC.indexOf(alias.toLowerCase())+alias.length()-1);
-				nc = n.toCharArray();
-				
-			} else {
-				
-				String n = nameLC.substring(nameLC.indexOf(showLC)+showLC.length()-1);
-				nc = n.toCharArray();
+			Pattern pattern = Pattern.compile("\\d++(?= )|12");
+			Matcher matcher = pattern.matcher(nameLC[n]);
+			if (matcher.find()) {
+			    
+				return new int[]{season, Integer.parseInt(matcher.group(0))};
 				
 			}
 			
-			for (int i = 0; i < nc.length; i++) {
+		}
+
+		for (int n = 0; n < nameLC.length; n++) {
+		
+			if (nameLC[n].contains(alias.toLowerCase()) || nameLC[n].contains(showLC)) {
 				
-				String int2parse = "";
+				char[] nc = null;
 				
-				if (!Character.isDigit(nc[i])) { continue; }
-				
-				int2parse += nc[i];
-				
-				for (int j = i+1; j < nc.length; j++) {
+				if (nameLC[n].contains(alias.toLowerCase())) {
 					
-					if (Character.isDigit(nc[j])) {
-						int2parse += nc[j];
-					} else if (int2parse.length() > 0) {
-						break;
+					String s = nameLC[n].substring(nameLC[n].indexOf(alias.toLowerCase())+alias.length()-1);
+					nc = s.toCharArray();
+					
+				} else {
+					
+					String s = nameLC[n].substring(nameLC[n].indexOf(showLC)+showLC.length()-1);
+					nc = s.toCharArray();
+					
+				}
+				
+				for (int i = 0; i < nc.length; i++) {
+					
+					String int2parse = "";
+					
+					if (!Character.isDigit(nc[i])) { continue; }
+					
+					int2parse += nc[i];
+					
+					for (int j = i+1; j < nc.length; j++) {
+						
+						if (Character.isDigit(nc[j])) {
+							int2parse += nc[j];
+						} else if (int2parse.length() > 0) {
+							break;
+						}
+						
+					}
+					
+					int ep = -1;
+					
+					try {
+						
+						ep = Integer.parseInt(int2parse);
+						
+					} catch (NumberFormatException e) {  }
+					
+					if (ep != -1) {
+						
+						return new int[]{season, ep};
+						
 					}
 					
 				}
 				
-				int ep = -1;
-				
-				try {
-					
-					ep = Integer.parseInt(int2parse);
-					
-				} catch (NumberFormatException e) {  }
-				
-				if (ep != -1) {
-					
-					return new int[]{season, ep};
-					
-				}
-				
 			}
 			
 		}
 		
-		if (Character.isDigit(chars[0])) {
-			
-			String int2parse = ""+chars[0];
-			
-			for (int i = 1; i < chars.length && Character.isDigit(chars[i]); i++) {
-				
-				int2parse += chars[i];
-				
-			}
-			
-			return new int[]{season, Integer.parseInt(int2parse)};
-			
-		}
+		for (int n = 0; n < nameLC.length; n++) {
 		
-		for (int i = 0; i < chars.length-1; i++) {
-			
-			if (Character.isDigit(chars[i]) && (i == 0 || !Character.isDigit(chars[i-1])) && Integer.parseInt(chars[i]+"") == season) {
+			for (int i = 0; i < chars[n].length-1; i++) {
 				
-				String int2parse = "";
-				
-				for (int j = i+1; j < chars.length; j++) {
+				if (Character.isDigit(chars[n][i]) && (i == 0 || !Character.isDigit(chars[n][i-1])) && Integer.parseInt(chars[n][i]+"") == season) {
 					
-					if (Character.isDigit(chars[j])) {
-						int2parse += chars[j];
-					} else if (int2parse.length() > 0) {
-						break;
+					String int2parse = "";
+					
+					for (int j = i+1; j < chars[n].length; j++) {
+						
+						if (Character.isDigit(chars[n][j])) {
+							int2parse += chars[n][j];
+						} else if (int2parse.length() > 0) {
+							break;
+						}
+						
+					}
+					
+					int ep = -1;
+					
+					try {
+						
+						ep = Integer.parseInt(int2parse);
+						
+					} catch (NumberFormatException e) {  }
+					
+					if (ep != -1) {
+						
+						return new int[]{season, ep};
+						
 					}
 					
 				}
 				
-				int ep = -1;
+			}
+			
+			if (Character.isDigit(chars[n][0])) {
 				
-				try {
-					
-					ep = Integer.parseInt(int2parse);
-					
-				} catch (NumberFormatException e) {  }
+				String int2parse = ""+chars[n][0];
 				
-				if (ep != -1) {
+				for (int i = 1; i < chars[n].length && Character.isDigit(chars[n][i]); i++) {
 					
-					return new int[]{season, ep};
+					int2parse += chars[n][i];
 					
 				}
+				
+				return new int[]{season, Integer.parseInt(int2parse)};
 				
 			}
 			
 		}
-		
-		if (first) {
 			
-			return getEpisodeInfo(name, folder.getParentFile(), alias, false);
-			
-		}
-		
 		return null;
 		
 	}
@@ -957,6 +1000,20 @@ public class Main {
 		}
 		
 		return null;
+	}
+	
+	public static String cleanseFileName(String fileName) {
+		
+		fileName = fileName.replace(":", " -");
+		fileName = fileName.replace("?", "");
+		fileName = fileName.replace("\\", "");
+		fileName = fileName.replace("/", "");
+		fileName = fileName.replace("*", "");
+		fileName = fileName.replace("|", "");
+		fileName = fileName.replace("<", "[");
+		fileName = fileName.replace(">", "]");
+		
+		return fileName;
 	}
 	
 }
