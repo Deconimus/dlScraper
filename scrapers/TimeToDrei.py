@@ -1,23 +1,24 @@
 from main import CustomScraper
+from main import Main
+from main import XBMCMetadata
+
+import unicodedata
 
 class TimeToDrei(CustomScraper):
-
 	
-	def __init__(self):
+	
+	def getAlias(self):
 		
-		print("kek")
+		return "t23"
 
 		
-	def getAlias():
+	def getEpisodeInfo(self, fileName):
 		
-		return "t23";
-
+		#fileName = unicodedata.normalize('NFKD', fileName).encode('ascii','ignore')
 		
-	def getEpisodeInfo(fileName):
+		fileName = fileName[fileName.index("#")+1:]
 		
-		fileName = fileName[fileName.indexof("#")+1:]
-		
-		int2parse = ""+fileName[0]
+		int2parse = ""
 		
 		for i in range(0, len(fileName)):
 			
@@ -28,7 +29,6 @@ class TimeToDrei(CustomScraper):
 				int2parse = s
 				
 			else:
-				
 				break
 				
 		episode = 0
@@ -36,11 +36,11 @@ class TimeToDrei(CustomScraper):
 		if (int2parse.isdigit()):
 			
 			episode = int(int2parse)
-			
+		
 		return [1, episode]
 
 		
-	def getEpisodeTitle(fileName):
+	def getEpisodeTitle(self, fileName):
 		
 		title = fileName[:fileName.rindex("-")]
 		title = title[:title.rindex("-")]
@@ -51,3 +51,13 @@ class TimeToDrei(CustomScraper):
 		title = Main.cleanseFileName(title)
 		
 		return title
+		
+		
+	def createShowNFO(self, dir, showName):
+		
+		XBMCMetadata.createShowNFO(dir, showName, "----Let's Play by TimeToDrei----")
+		
+		
+	def createEpisodeNFO(self, info, title, fileName, seasonDir):
+		
+		XBMCMetadata.createEpisodeNFO(info, title, fileName, seasonDir)
