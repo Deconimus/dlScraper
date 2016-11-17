@@ -118,7 +118,7 @@ def getAlias(self):
 		return "t23"
 ```
 
-So the show's this scraper should organize are labeled with "t23_" as a prefix:
+So the shows this scraper should organize are labeled with "t23_" as a prefix:
 
 ```
 <alias seriesName="999 - Nine Hours. Nine Persons. Nine Doors" aliasName="t23_999" />
