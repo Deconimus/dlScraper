@@ -22,6 +22,8 @@ import visionCore.util.Files;
 
 public class GoogleImages {
 
+	public static final String API_KEY = "AIzaSyCBpXUOZyBD-3ImaPy9dI343iMmn8ekM_Y";
+	
 	public static final float POSTER_RATIO = 0.68f;
 	public static final int POSTER_WIDTH = 680, POSTER_HEIGHT = 1000;
 	
@@ -45,7 +47,7 @@ public class GoogleImages {
 				URLConnection connection = null;
 				InputStream is = null;
 				
-				String url = "http://ajax.googleapis.com/ajax/services/search/images?v=1.0&start="+(i*8)+"&rsz=8&q="+query;
+				String url = "https://www.googleapis.com/customsearch/v1?start="+(i*8)+"&num=8&q="+query+"&fileType=jpg&imgSize=large"+"&key="+API_KEY;
 				
 				connection = new URL(url).openConnection();
 				is = connection.getInputStream();

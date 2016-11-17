@@ -9,7 +9,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -32,6 +31,7 @@ import org.xml.sax.InputSource;
 import org.xml.sax.XMLReader;
 import org.xml.sax.helpers.XMLReaderFactory;
 
+import jdk.internal.org.objectweb.asm.Attribute;
 import visionCore.util.Files;
 
 import java.net.MalformedURLException;
@@ -46,6 +46,8 @@ public class Main {
 	
 	private static final String API_KEY = "8C4835D37B726132";
 
+	public static String abspath;
+	
 	private static String moviesDir;
 	private static HashMap<String, Show> shows;
 	private static HashMap<String, String> subNeed;
@@ -62,11 +64,42 @@ public class Main {
 	
 	public static void main(String[] args) {
 		
+		setAbspath();
+		
 		customScrapers = new HashMap<String, CustomScraper>();
 		
-		Gronkh.load();
+		File d = new File(abspath);
+		File moduledir = null;
 		
-		System.out.println("\nDownload-Scraper v0.69 by Deconimus\n");
+		for (File f : d.listFiles()) {
+			
+			if (f.isDirectory() && f.getName().toLowerCase().contains("scraper")) { moduledir = f; }
+		}
+		
+		JythonFactory jf = JythonFactory.getInstance();
+		
+		if (moduledir != null && moduledir.exists()) {
+			
+			for (File f : moduledir.listFiles()) {
+				String fn = f.getName().toLowerCase();
+				
+				if (fn.endsWith(".py")) {
+					
+					CustomScraper cs = (CustomScraper)jf.getJythonObject("main.CustomScraper", f.getAbsolutePath().replace("\\", "/"));
+					
+					if (cs != null) {
+						
+						customScrapers.put(cs.getAlias(), cs);
+					}
+				}
+				
+			}
+		}
+		
+		Gronkh.load();
+		GigaTop100.load();
+		
+		System.out.println("\ndlScraper by Deconimus\n");
 		
 		newEpisodes = new HashMap<String, List<Episode>>();
 		seriesAdded = new ArrayList<String>();
@@ -92,8 +125,22 @@ public class Main {
 					
 					if (e.getName().equalsIgnoreCase("alias")) {
 						
-						shows.put(e.attributeValue("aliasName").toLowerCase(), new Show(e.attributeValue("seriesName"), seriesDir));
+						// way too much code for this but whatever, it's robust
 						
+						boolean abs = false;
+						
+						for (Iterator<org.dom4j.Attribute> it = e.attributeIterator(); it.hasNext();) {
+							org.dom4j.Attribute a = it.next();
+							
+							if (a.getName().trim().toLowerCase().contains("abs")) {
+								
+								String s = a.getValue();
+								
+								abs = !(s.trim().toLowerCase().equals("false") || s.trim().startsWith("0"));
+							}
+						}
+						
+						shows.put(e.attributeValue("aliasName").toLowerCase(), new Show(e.attributeValue("seriesName"), seriesDir, abs));
 					}
 					
 				}
@@ -106,6 +153,7 @@ public class Main {
 				dlDirs.add(dlDir);
 				
 			} else if (elem.getName().equalsIgnoreCase("moviesFolder")) {
+				
 				moviesDir = elem.attributeValue("folder");
 			}
 			
@@ -117,6 +165,8 @@ public class Main {
 			
 			File dlDirFile = new File(dlDir);
 			File[] files = dlDirFile.listFiles();
+			
+			if (files == null || files.length <= 0) { continue; }
 			
 			for (File file : files) {
 			
@@ -143,7 +193,11 @@ public class Main {
 						
 						for (File subFile : dirFiles) {
 							
-							int[] info = getEpisodeInfo(subFile.getName(), file, curAlias);
+							File parentFolder = null;
+							
+							if (!file.equals(subFile.getParentFile())) { parentFolder = subFile.getParentFile(); }
+							
+							int[] info = getEpisodeInfo(subFile.getName(), file, parentFolder, curAlias);
 							
 							if (info == null) { continue; }
 							
@@ -155,7 +209,6 @@ public class Main {
 								
 								showDir = new File(shows.get(curAlias).seriesPath + shows.get(curAlias).name);
 								showDir.mkdirs();
-								
 							}
 							
 							File seasonDir = getSeasonDir(showDir, season);
@@ -163,26 +216,26 @@ public class Main {
 								
 								seasonDir = new File(showDir.getAbsolutePath()+"/Season "+season);
 								seasonDir.mkdirs();
-								
 							}
 							
 							if (customScraper != null) {
 								
 								customScraper.createShowNFO(showDir, shows.get(curAlias).name);
 								
-								GoogleImages.fetchFanart(shows.get(curAlias).name, showDir);
-								GoogleImages.fetchPoster(shows.get(curAlias).name, showDir);
-								
+								//GoogleImages.fetchFanart(shows.get(curAlias).name, showDir);
+								//GoogleImages.fetchPoster(shows.get(curAlias).name, showDir);
 							}
 							
 							if (!seasonDirs.contains(seasonDir.getAbsolutePath())) {
+								
 								seasonDirs.add(seasonDir.getAbsolutePath());
 							}
 							
 							String fileName = "S";
-							if (season < 10) { fileName += ""+0; }
+							if (season < 10) { fileName += "0"; }
 							fileName += ""+season+"E";
-							if (episode < 10) { fileName += ""+0; }
+							if (episode < 10) { fileName += "0"; }
+							if (episode < 100 && shows.get(curAlias).absNr) { fileName += "0"; }
 							fileName += ""+episode;
 							
 							String ext = subFile.getName().substring(subFile.getName().length()-4);
@@ -192,7 +245,7 @@ public class Main {
 							if (customScraper != null) {
 								
 								title = customScraper.getEpisodeTitle(subFile.getName());
-								
+								title = cleanseFileName(title);
 							}
 							
 							if (title.length() > 0) {
@@ -218,7 +271,6 @@ public class Main {
 							if (customScraper != null) {
 								
 								customScraper.createEpisodeNFO(info, title, fileName, seasonDir);
-								
 							}
 							
 							if (episodeFile.exists()) {
@@ -241,16 +293,16 @@ public class Main {
 							
 							Episode newEp = new Episode(episodeFile.getAbsolutePath(), curShow, season, episode);
 							
-							if (newEpisodes.containsKey(curShow)) {
+							if (newEpisodes.containsKey(curAlias)) {
 								
-								newEpisodes.get(curShow).add(newEp);
+								newEpisodes.get(curAlias).add(newEp);
 								
 							} else {
 								
 								List<Episode> episodes = new ArrayList<Episode>();
 								episodes.add(newEp);
 								
-								newEpisodes.put(curShow, episodes);
+								newEpisodes.put(curAlias, episodes);
 								
 							}
 							
@@ -341,7 +393,6 @@ public class Main {
 		for (String k : newEpisodes.keySet()) {
 			
 			numNewEpisodes += newEpisodes.get(k).size();
-			
 		}
 		
 		if (numNewEpisodes == 0) {
@@ -383,10 +434,13 @@ public class Main {
 		}
 		
 		if (seriesAdded.size() > 0) {
+			
 			System.out.println("Renaming episodes for database");
 		}
 		
-		for (String show : newEpisodes.keySet()) {
+		for (String showAlias : newEpisodes.keySet()) {
+			
+			String show = shows.get(showAlias).name;
 			
 			String showUrlName = show.replace(' ', '+');
 			
@@ -406,7 +460,7 @@ public class Main {
 			
 			Element rootElem = document.getRootElement();
 			
-			for (Episode episode : newEpisodes.get(show)) {
+			for (Episode episode : newEpisodes.get(showAlias)) {
 				
 				String newName = "";
 				
@@ -418,12 +472,14 @@ public class Main {
 						int s = Integer.parseInt(elem.element("SeasonNumber").getText());
 						int e = Integer.parseInt(elem.element("EpisodeNumber").getText());
 						
-						if (s == episode.season && e == episode.episode) {
+						int absE = -1;
+						try { absE = (int)Double.parseDouble(elem.element("absolute_number").getText().trim()); } catch (Exception | Error ex) { }
+						
+						if ((shows.get(showAlias).absNr && absE == episode.episode) || (s == episode.season && e == episode.episode)) {
 							
 							newName = elem.element("EpisodeName").getText();
 							
 							break;
-							
 						}
 						
 					}
@@ -432,7 +488,7 @@ public class Main {
 				
 				String extension = episode.dir.substring(episode.dir.lastIndexOf('.'));
 				
-				File newFile = new File(episode.dir.substring(0, episode.dir.lastIndexOf('.'))+" - "+newName+""+extension);
+				File newFile = new File(episode.dir.substring(0, episode.dir.lastIndexOf('.'))+" - "+cleanseFileName(newName)+""+extension);
 				File epFile = new File(episode.dir);
 				
 				epFile.renameTo(newFile);
@@ -628,11 +684,12 @@ public class Main {
 		
 	}
 	
-	private static int[] getEpisodeInfo(String name, File folder, String alias) {
-		return getEpisodeInfo(name, folder, alias, true);
+	private static int[] getEpisodeInfo(String name, File folder, File parentFolder, String alias) {
+		
+		return getEpisodeInfo(name, folder, parentFolder, alias, true);
 	}
 	
-	private static int[] getEpisodeInfo(String name, File folder, String alias, boolean first) {
+	private static int[] getEpisodeInfo(String name, File folder, File parentFolder, String alias, boolean first) {
 		
 		CustomScraper cScraper = getCustomScraper(alias);
 		
@@ -641,22 +698,38 @@ public class Main {
 			return cScraper.getEpisodeInfo(name);
 		}
 		
-		String[] nameLC = new String[]{ name.toLowerCase(), folder.getName().toLowerCase() };
+		String nameLC[] = null;
+		
+		if (parentFolder != null) {
+			
+			nameLC = new String[]{ name.toLowerCase(), parentFolder.getName().toLowerCase() };
+			
+		} else {
+			
+			nameLC = new String[]{ name.toLowerCase() };
+		}
+			
 		
 		char[] folderChars = folder.getName().toLowerCase().toCharArray();
 		
-		List<String> wordsToDiscard = Arrays.asList( "x264", "h.264", "h264", "x265", "h.265", "h265", "m4a" );
-		
 		for (int i = 0; i < nameLC.length; i++) {
 		
-			for (int j = 0; j < wordsToDiscard.size(); j++ ) {
-				nameLC[i] = nameLC[i].replace(wordsToDiscard.get(j), "");
-			}
+			nameLC[i] = nameLC[i].replace("x264", "");
+			nameLC[i] = nameLC[i].replace("h.264", "");
+			nameLC[i] = nameLC[i].replace("h264", "");
+			
+			nameLC[i] = nameLC[i].replace("x265", "");
+			nameLC[i] = nameLC[i].replace("h.265", "");
+			nameLC[i] = nameLC[i].replace("h265", "");
+			
+			nameLC[i] = nameLC[i].replace("m4a", "");
+			
 		}
 		
-		char[][] chars = new char[2][];
-		chars[0] = nameLC[0].toCharArray();
-		chars[1] = nameLC[1].toCharArray();
+		char[][] chars = new char[nameLC.length][];
+		for (int n = 0; n < chars.length; n++) {
+			chars[n] = nameLC[n].toCharArray();
+		}
 		
 		String showLC = shows.get(alias).name.toLowerCase();
 		
@@ -670,15 +743,14 @@ public class Main {
 						
 						if ((chars[n][i+3] == 'e') && Character.isDigit(chars[n][i+4])) {
 							
-							String int2parse = chars[n][i+3]+"";
+							String int2parse = chars[n][i+4]+"";
 							
-							for (int j = i+4; j < chars[n].length && Character.isDigit(chars[n][j]); j++) {
+							for (int j = i+5; j < chars[n].length && Character.isDigit(chars[n][j]); j++) {
 								
 								int2parse += chars[n][j];
-								
 							}
 							
-							return new int[]{Integer.parseInt(chars[n][i+1]+""+chars[n][i+2]), Integer.parseInt(chars[n][i+4]+""+chars[n][i+5])};
+							return new int[]{Integer.parseInt(chars[n][i+1]+""+chars[n][i+2]), Integer.parseInt(int2parse)};
 							
 						} else if ((chars[n][i+2] == 'e') && Character.isDigit(chars[n][i+3])) {
 							
@@ -687,10 +759,9 @@ public class Main {
 							for (int j = i+4; j < chars[n].length && Character.isDigit(chars[n][j]); j++) {
 								
 								int2parse += chars[n][j];
-								
 							}
 							
-							return new int[]{Integer.parseInt(chars[n][i+1]+""+chars[n][i+2]), Integer.parseInt(chars[n][i+3]+""+chars[n][i+4])};
+							return new int[]{Integer.parseInt(chars[n][i+1]+""+chars[n][i+2]), Integer.parseInt(int2parse)};
 							
 						}
 						
@@ -960,11 +1031,14 @@ public class Main {
 		
 		public String name, seriesPath;
 		
-		public Show(String name, String seriesPath) {
+		/** absolute episode numbering */
+		public boolean absNr;
+		
+		public Show(String name, String seriesPath, boolean absNr) {
 			
 			this.name = name;
 			this.seriesPath = seriesPath;
-			
+			this.absNr = absNr;
 		}
 		
 	}
@@ -1003,13 +1077,32 @@ public class Main {
 		fileName = fileName.replace(":", " -");
 		fileName = fileName.replace("?", "");
 		fileName = fileName.replace("\\", "");
-		fileName = fileName.replace("/", "");
+		fileName = fileName.replace("/", " ");
 		fileName = fileName.replace("*", "");
-		fileName = fileName.replace("|", "");
+		fileName = fileName.replace("|", "-");
 		fileName = fileName.replace("<", "[");
 		fileName = fileName.replace(">", "]");
 		
 		return fileName;
+	}
+	
+	private static void setAbspath() {
+		
+		try {
+			
+			abspath = new File(Main.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getAbsolutePath().replace("\\", "/");
+			
+			if (abspath.endsWith("/bin")) {
+				
+				abspath = abspath.substring(0, abspath.indexOf("/bin"));
+			}
+			
+			if (abspath.endsWith(".jar")) {
+				
+				abspath = new File(abspath).getParentFile().getAbsolutePath();
+			}
+			
+		} catch (Exception e) { e.printStackTrace(); }
 	}
 	
 }

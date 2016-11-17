@@ -24,6 +24,11 @@ public class Gronkh implements CustomScraper {
 		Main.customScrapers.put("gronkh", new Gronkh());
 	}
 	
+	public String getAlias() {
+		
+		return "gronkh";
+	}
+	
 	@Override
 	public int[] getEpisodeInfo(String fileName) {
 
@@ -73,15 +78,27 @@ public class Gronkh implements CustomScraper {
 		
 		if (pattern == PATTERN_1) {
 		
-			title = fileName.substring(fileName.indexOf("] -")+3, fileName.indexOf("Let's Play")-2).trim();
+			title = fileName.substring(fileName.indexOf("] -")+3).trim();
+			
+			if (title.contains("Let's Play")) {
+				
+				title = title.substring(0, title.indexOf("Let's Play")-2);
+				
+			} else if (title.contains("(")) { 
+				
+				title = title.substring(0, title.indexOf("(")-1);
+				
+			}
 			
 		} else if (pattern == PATTERN_0) {
 			
 			title = fileName.substring(fileName.indexOf('#'));
 			title = title.substring(title.indexOf('-')+2);
-			title = title.substring(0, title.indexOf('(')).trim();
+			title = title.substring(0, title.indexOf('('));
 			
 		}
+		
+		title = title.trim();
 		
 		return title;
 	}
@@ -104,14 +121,13 @@ public class Gronkh implements CustomScraper {
 		fileName = fileName.substring(0, fileName.lastIndexOf('.'));
 		fileName = fileName.trim();
 		
-		if (fileName.contains("[") && fileName.substring(fileName.indexOf('[')).contains("let's play")) {
+		if (fileName.contains("[") && fileName.contains("]")) {
 			
 			return PATTERN_1;
 			
 		} else {
 			
 			return PATTERN_0;
-			
 		}
 		
 	}
