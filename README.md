@@ -50,6 +50,15 @@ That basically also appeals to tvshows folders, but you define the tvshows you w
 As you can see the "alias" brackets define the seriesName and its alias. The alias will be later of use for the downloads.
 You can make as much alias-entries for a single show as you desire.
 
+
+##### Absolute Episode Numbering
+
+If you want to have absolute episode numbering (conventionally used for long running anime such as Naruto) instead of TVDBs default season based numbering enabled for a show just add the "absNumbering" attribute to the show's entry and set it to "1" or "true":
+
+```
+<alias seriesName="Naruto Shippuuden" aliasName="shippuuden" absNumbering="1" />
+```
+
 #### Folders
 
 ##### Downloads
@@ -92,3 +101,25 @@ After this you just have to run dlScraper and let it move and rename your files.
 
 Even simpler than tv shows are movies.
 You just have to name the folder where you download your movie into in the form of "movie=[movietitle]" ("movie=Indie Game The Movie" f.i.).
+
+### Custom Scrapers
+
+If you wan't to use this tool to organize a TV Show or a Webseries, that isn't added to TVDB, you can write a simple scraper in python and add it to the "scrapers" directory. There is an explaining example as well as a functional scraper for the YouTube channel "TimeToDrei"'s Let's Plays.
+
+The show's alias must also feature the scrapers alias as a prefix.
+
+#### Example:
+
+TimeToTrei.py defines it's alias as "t23":
+
+```
+def getAlias(self):
+		
+		return "t23"
+```
+
+So the shows this scraper should organize are labeled with "t23_" as a prefix:
+
+```
+<alias seriesName="999 - Nine Hours. Nine Persons. Nine Doors" aliasName="t23_999" />
+```
