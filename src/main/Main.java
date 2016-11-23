@@ -644,15 +644,11 @@ public class Main {
 				if (file.getName().equalsIgnoreCase(show.name)) {
 					
 					return file;
-					
 				}
-				
 			}
-			
 		}
 		
 		return null;
-		
 	}
 	
 	private static File getSeasonDir(File showDir, int season) {
@@ -671,7 +667,6 @@ public class Main {
 					if (file.getName().endsWith(" "+season) || file.getName().endsWith(" 0"+season)) {
 						
 						return file;
-						
 					}
 					
 				}
@@ -681,7 +676,6 @@ public class Main {
 		}
 		
 		return null;
-		
 	}
 	
 	private static int[] getEpisodeInfo(String name, File folder, File parentFolder, String alias) {
@@ -724,6 +718,14 @@ public class Main {
 			
 			nameLC[i] = nameLC[i].replace("m4a", "");
 			
+			nameLC[i] = nameLC[i].replace("2160p", "");
+			nameLC[i] = nameLC[i].replace("1440p", "");
+			nameLC[i] = nameLC[i].replace("1080p", "");
+			nameLC[i] = nameLC[i].replace("720p", "");
+			nameLC[i] = nameLC[i].replace("480p", "");
+			nameLC[i] = nameLC[i].replace("360p", "");
+			nameLC[i] = nameLC[i].replace("240p", "");
+			nameLC[i] = nameLC[i].replace("144p", "");
 		}
 		
 		char[][] chars = new char[nameLC.length][];
