@@ -422,13 +422,11 @@ public class Main {
 					} else {
 						
 						move.dst.delete();
-						
 					}
 					
 				}
 				
 				Files.moveFileUsingOS(move.src, move.dst);
-				
 			}
 			
 		}
@@ -533,9 +531,7 @@ public class Main {
 								
 								sub = true;
 								break;
-								
 							}
-							
 						}
 						
 						if (!sub) {
@@ -608,7 +604,6 @@ public class Main {
 				alias.addAttribute("aliasName", "got");
 				
 				return new ArrayList<Element>();
-				
 			}
 			
 		}
@@ -626,7 +621,6 @@ public class Main {
 			Element elem = i.next();
 			
 			elems.add(elem);
-			
 		}
 		
 		return elems;
@@ -668,11 +662,8 @@ public class Main {
 						
 						return file;
 					}
-					
 				}
-				
 			}
-			
 		}
 		
 		return null;
@@ -717,6 +708,8 @@ public class Main {
 			nameLC[i] = nameLC[i].replace("h265", "");
 			
 			nameLC[i] = nameLC[i].replace("m4a", "");
+			nameLC[i] = nameLC[i].replace("ac3", "");
+			nameLC[i] = nameLC[i].replace("mp3", "");
 			
 			nameLC[i] = nameLC[i].replace("2160p", "");
 			nameLC[i] = nameLC[i].replace("1440p", "");
@@ -726,10 +719,13 @@ public class Main {
 			nameLC[i] = nameLC[i].replace("360p", "");
 			nameLC[i] = nameLC[i].replace("240p", "");
 			nameLC[i] = nameLC[i].replace("144p", "");
+			
+			nameLC[i] = nameLC[i].replace("..", "");
 		}
 		
 		char[][] chars = new char[nameLC.length][];
 		for (int n = 0; n < chars.length; n++) {
+			
 			chars[n] = nameLC[n].toCharArray();
 		}
 		
@@ -768,11 +764,8 @@ public class Main {
 						}
 						
 					}
-					
 				}
-				
 			}
-			
 		}
 		
 		int season = 1;
@@ -956,7 +949,6 @@ public class Main {
 						} else if (int2parse.length() > 0) {
 							break;
 						}
-						
 					}
 					
 					int ep = -1;
@@ -984,17 +976,53 @@ public class Main {
 				for (int i = 1; i < chars[n].length && Character.isDigit(chars[n][i]); i++) {
 					
 					int2parse += chars[n][i];
-					
 				}
 				
 				return new int[]{season, Integer.parseInt(int2parse)};
-				
 			}
 			
 		}
+		
+		for (int n = 0; n < nameLC.length; n++) {
+			
+			int nums = 0;
+			
+			for (int i = 0; i < nameLC[n].length(); i++) {
+				
+				if (Character.isDigit(nameLC[n].charAt(i)) && (i == 0 || !Character.isDigit(nameLC[n].charAt(i-1)))) {
+					
+					nums++;
+				}
+			}
+			
+			if (nums == 1) {
+				
+				String int2parse = "";
+				
+				for (int i = 0; i < nameLC[n].length(); i++) {
+					
+					if (Character.isDigit(nameLC[n].charAt(i))) {
+						
+						int2parse += nameLC[n].charAt(i);
+						
+					} else if (int2parse.length() > 0) {
+						
+						break;
+					}
+				}
+				
+				try { 
+					
+					int ep = Integer.parseInt(int2parse);
+					
+					return new int[]{ season, ep };
+					
+				} catch (Exception e) {}
+				
+			}
+		}
 			
 		return null;
-		
 	}
 	
 	public static boolean isVideoFile(File file) {
