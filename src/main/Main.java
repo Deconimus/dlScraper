@@ -1,51 +1,39 @@
 package main;
 
-import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
+import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Set;
-import java.util.concurrent.Callable;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipFile;
 import java.util.zip.ZipInputStream;
 
 import org.dom4j.Document;
 import org.dom4j.DocumentException;
-import org.dom4j.DocumentHelper;
 import org.dom4j.Element;
 import org.dom4j.io.SAXReader;
-import org.xml.sax.InputSource;
-import org.xml.sax.XMLReader;
-import org.xml.sax.helpers.XMLReaderFactory;
 
-import jdk.internal.org.objectweb.asm.Attribute;
+import visionCore.dataStructures.tuples.Triplet;
 import visionCore.util.Files;
-
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLDecoder;
-import java.nio.file.CopyOption;
-import java.nio.file.StandardCopyOption;
-
-import static java.nio.file.StandardCopyOption.*;
+import visionCore.util.Web;
 
 public class Main {
 	
-	private static final String API_KEY = "8C4835D37B726132";
-
+	public static final String API_KEY = "8C4835D37B726132";
+	
+	
+	public static final int MODE_DEFAULT = 0, MODE_FIX = 1, MODE_REFRESH = 2;
+	public static int mode = MODE_DEFAULT;
+	public static String modeArg = null;
+	
+	
 	public static String abspath;
 	
 	private static String moviesDir;
@@ -54,7 +42,7 @@ public class Main {
 	
 	public static HashMap<String, CustomScraper> customScrapers;
 	
-	private static List<String> seriesAdded, dlDirs;
+	private static List<String> dlDirs;
 	
 	private static HashMap<String, List<Episode>> newEpisodes;
 	
@@ -62,11 +50,217 @@ public class Main {
 	
 	private static final int MAX_THREADS = Math.max(Runtime.getRuntime().availableProcessors()-1, 1);
 	
+	
+	public static String default_lang = "en";
+	public static boolean default_local = false;
+	
+	
 	public static void main(String[] args) {
 		
 		setAbspath();
+		parseArgs(args);
 		
-		customScrapers = new HashMap<String, CustomScraper>();
+		System.out.println("\ndlScraper by Deconimus\n");
+		
+		newEpisodes = new HashMap<String, List<Episode>>();
+		dlDirs = new ArrayList<String>();
+		fileMoves = new ArrayList<FileMove>();
+		subNeed = new HashMap<String, String>();
+		
+		System.out.println("Reading settings.xml");
+		
+		shows = new HashMap<String, Show>();
+		readSettingsXML();
+		
+		if (shows.isEmpty()) {
+			
+			System.out.println("\nNo shows specified or no settings-file found.");
+			return;
+		}
+		
+		
+		if (mode == MODE_DEFAULT) {
+			
+			
+			System.out.println("Loading custom scrapers");
+			
+			customScrapers = new HashMap<String, CustomScraper>();
+			loadCustomScrapers();
+		
+			
+			System.out.println("Searching for new episodes\n");
+			findNewEpisodes();
+			
+	
+			System.out.println("");
+			printNewEpisodesInfo();
+			
+			
+			if (!fileMoves.isEmpty()) {
+				
+				System.out.println("Moving files");
+				
+				for (FileMove move : fileMoves) {
+					
+					if (move.dst.exists()) {
+						
+						if (Files.getSize(move.dst) > Files.getSize(move.src)) {
+							
+							continue;
+							
+						} else {
+							
+							move.dst.delete();
+						}
+						
+					}
+					
+					Files.moveFileUsingOS(move.src, move.dst);
+				}
+			}
+			
+			
+			if (!newEpisodes.isEmpty()) { System.out.println("Renaming episodes for database"); }
+			renameEpisodes();
+			
+			
+			System.out.println("Done;\ntips_fedora();");
+			
+			try { Thread.sleep(1500); } catch (Exception e) { e.printStackTrace(); }
+			
+			
+		} else if (mode == MODE_FIX || mode == MODE_REFRESH) {
+			
+			System.out.println();
+			
+			List<Show> sh = new ArrayList<Show>();
+			
+			if (modeArg == null) {
+				
+				if (mode == MODE_FIX) { System.out.println("Fixing metadata in library."); }
+				else { System.out.println("Refreshing metadata in library."); }
+				
+				sh.addAll(shows.values());
+				
+			} else {
+				
+				Show show = shows.get(modeArg.toLowerCase().trim());
+				if (show != null) { sh.add(show); }
+				
+				if (sh.isEmpty()) {
+					
+					for (Show s : shows.values()) {
+						
+						if (s.name.toLowerCase().equals(modeArg)) { sh.add(s); break; }
+					}
+				}
+				
+			}
+			
+			if (sh.isEmpty()) {
+				
+				System.out.println("Show \""+modeArg+"\" not found.");
+				return;
+			}
+			
+			if (sh.size() == 1) {
+			
+				if (mode == MODE_FIX) { System.out.println("Fixing metadata for \""+sh.get(0).name+"\""); }
+				else { System.out.println("Refreshing metadata for \""+sh.get(0).name+"\""); }
+			}
+			
+			
+			for (Show show : sh) {
+				
+				File showDir = new File(show.seriesPath.replace("\\", "/")+show.name);
+				if (showDir == null || !showDir.exists()) { continue; }
+				
+				show.load();
+				
+				if (!show.local) { continue; }
+				
+				File tmpfile = new File(showDir.getAbsolutePath()+"/tmp.zip");
+				Web.downloadFile(show.url, tmpfile);
+				
+				ZipEntry infoEntry = null;
+				ZipFile zipFile = null;
+				
+				try {
+					
+					zipFile = new ZipFile(tmpfile);
+					
+					infoEntry = zipFile.getEntry(show.lang+".xml");
+					if (infoEntry == null) { infoEntry = zipFile.getEntry("en.xml"); }
+					
+				} catch (Exception e) { }
+				
+				if (infoEntry == null) {
+					
+					if (zipFile != null) { try { zipFile.close(); } catch (Exception e) {} }
+					tmpfile.delete();
+					continue;
+				}
+				
+				SAXReader r = new SAXReader();
+				Document document = null;
+				try { document = r.read(zipFile.getInputStream(infoEntry)); }
+				catch (Exception | Error e) { tmpfile.delete(); continue; }
+				
+				Element rootElem = document.getRootElement();
+				Element showElem = rootElem.elements().stream().filter(e -> e.getName().equalsIgnoreCase("series")).findAny().get();
+				
+				show.updateMedia(showElem, zipFile);
+				
+				List<Triplet<Integer, Integer, File>> eps = new ArrayList<Triplet<Integer, Integer, File>>();
+				
+				for (File d : showDir.listFiles()) {
+					
+					String nm = d.getName().toLowerCase();
+					if (!d.isDirectory() || (!nm.startsWith("season") && !nm.startsWith("staffel"))) { continue; }
+					
+					for (File f : d.listFiles()) {
+						if (!isVideoFile(f)) { continue; }
+						
+						String n = f.getName().substring(0, f.getName().lastIndexOf('.'));
+						String p = d.getAbsolutePath().replace('\\', '/')+"/"+n;
+						
+						System.out.println(p);
+						
+						if (mode == MODE_REFRESH || (!(new File(p+".nfo").exists()) || (!(new File(p+".jpg").exists()) && !(new File(p+".tbn").exists())))) {
+							
+							n = n.toLowerCase();
+							
+							int episode = Integer.parseInt(n.substring(n.indexOf('e')+1, n.indexOf('-')).trim());
+							int season = Integer.parseInt(n.substring(n.indexOf('s')+1, n.indexOf('e')));
+							
+							System.out.println("kek");
+							
+							eps.add(new Triplet<Integer, Integer, File>(season, episode, f));
+						}
+					}
+				}
+				
+				//elements = elements.stream().filter(e -> e.getName().equalsIgnoreCase("episode")).collect(Collectors.toCollection(ArrayList<Element>::new));
+				
+				for (Triplet<Integer, Integer, File> ep : eps) {
+				
+					Element elem = getEpisodeElem(rootElem, ep.x, ep.y, show.absNr);
+					if (elem == null) { continue; }
+					
+					show.saveEpisodeMetadata(ep.z, elem);
+					
+				}
+				
+				tmpfile.delete();
+			}
+			
+			
+		}
+		
+	}
+	
+	
+	private static void loadCustomScrapers() {
 		
 		File d = new File(abspath);
 		File moduledir = null;
@@ -98,22 +292,51 @@ public class Main {
 		
 		Gronkh.load();
 		GigaTop100.load();
+	}
+	
+	
+	private static void readSettingsXML() {
 		
-		System.out.println("\ndlScraper by Deconimus\n");
+		String path = Main.class.getProtectionDomain().getCodeSource().getLocation().getPath();
+		path = path.replace("%20", " ");
+		path = path.substring(1, path.lastIndexOf('/'));
 		
-		newEpisodes = new HashMap<String, List<Episode>>();
-		seriesAdded = new ArrayList<String>();
-		dlDirs = new ArrayList<String>();
-		fileMoves = new ArrayList<FileMove>();
-		subNeed = new HashMap<String, String>();
+		File file = new File(path+"/dlScraper_settings.xml");
 		
-		System.out.println("Reading settings.xml");
+		if (!file.exists()) {
+			
+			File alt = new File("settings.xml");
+			
+			if (alt.exists()) { 
+				
+				alt.renameTo(file);
+				
+			} else { return; }
+		}
 		
-		List<Element> elems = readSettingsXML();
+		SAXReader reader = new SAXReader();
+		Document doc = null;
+		try {
+			doc = reader.read(file);
+		} catch (DocumentException e) { e.printStackTrace(); }
 		
-		shows = new HashMap<String, Show>();
+		Element root = doc.getRootElement();
 		
-		for (Element elem : elems) {
+		
+		for (Element elem : root.elements()) {
+			
+			if (elem.getName().equalsIgnoreCase("lang")) {
+				
+				String lang = elem.getText().trim().toLowerCase();
+				if (!lang.isEmpty()) { default_lang = lang; }
+				
+			} else if (elem.getName().equalsIgnoreCase("local")) {
+				
+				try { default_local = parseBoolean(elem.getText()); } catch (Exception e) {}
+			}
+		}
+		
+		for (Element elem : root.elements()) {
 			
 			if (elem.getName().equalsIgnoreCase("seriesFolder")) {
 				
@@ -125,22 +348,36 @@ public class Main {
 					
 					if (e.getName().equalsIgnoreCase("alias")) {
 						
-						// way too much code for this but whatever, it's robust
-						
 						boolean abs = false;
+						int id = -1;
+						String lang = default_lang;
+						boolean local = default_local;
 						
 						for (Iterator<org.dom4j.Attribute> it = e.attributeIterator(); it.hasNext();) {
 							org.dom4j.Attribute a = it.next();
 							
-							if (a.getName().trim().toLowerCase().contains("abs")) {
+							String nm = a.getName().trim().toLowerCase();
+							
+							if (nm.contains("abs")) {
 								
-								String s = a.getValue();
+								try { abs = parseBoolean(a.getValue()); } catch (Exception ex) {}
 								
-								abs = !(s.trim().toLowerCase().equals("false") || s.trim().startsWith("0"));
+							} else if (nm.contains("local")) {
+								
+								try { local = parseBoolean(a.getValue()); } catch (Exception ex) {}
+								
+							} else if (nm.contains("lang")) {
+								
+								String v = a.getValue();
+								lang = (v != null && !v.trim().isEmpty()) ? v : lang;
+								
+							} else if (nm.contains("id")) {
+								
+								try { id = parseId(a.getValue()); } catch (Exception ex) {}
 							}
 						}
 						
-						shows.put(e.attributeValue("aliasName").toLowerCase(), new Show(e.attributeValue("seriesName"), seriesDir, abs));
+						shows.put(e.attributeValue("aliasName").toLowerCase(), new Show(e.attributeValue("seriesName"), seriesDir, abs, id, lang, local));
 					}
 					
 				}
@@ -155,11 +392,14 @@ public class Main {
 			} else if (elem.getName().equalsIgnoreCase("moviesFolder")) {
 				
 				moviesDir = elem.attributeValue("folder");
+				
 			}
-			
 		}
 		
-		System.out.println("Searching for new episodes\n");
+	}
+	
+	
+	private static void findNewEpisodes() {
 		
 		for (String dlDir : dlDirs) {
 			
@@ -257,7 +497,7 @@ public class Main {
 									
 									if (f.getName().toLowerCase().contains(title.toLowerCase().trim())) {
 										
-										fileMoves.add(new FileMove(f, new File(seasonDir.getPath()+"/"+fileName+".tbn")));
+										fileMoves.add(new FileMove(f, new File(seasonDir.getPath()+"/"+fileName+".jpg")));
 										
 										break;
 									}
@@ -307,12 +547,9 @@ public class Main {
 							}
 							
 							episodesOfSeries++;
-								
 						}
 						
 						if (episodesOfSeries > 0) {
-							
-							seriesAdded.add(episodesOfSeries+" of "+shows.get(curAlias).name+" in season "+season);
 							
 							if (folderNameLower.contains("lang=")) {
 								
@@ -325,7 +562,6 @@ public class Main {
 									if (Character.isAlphabetic(langChars[i])) {
 										lang += langChars[i];
 									} else { break; }
-									
 								}
 								
 								lang = lang.toLowerCase();
@@ -386,8 +622,10 @@ public class Main {
 			}
 			
 		}
-
-		System.out.println("");
+	}
+	
+	
+	private static void printNewEpisodesInfo() {
 		
 		int numNewEpisodes = 0;
 		for (String k : newEpisodes.keySet()) {
@@ -395,94 +633,84 @@ public class Main {
 			numNewEpisodes += newEpisodes.get(k).size();
 		}
 		
-		if (numNewEpisodes == 0) {
-			System.out.println("No new episodes found.\n");
-		} else if (numNewEpisodes == 1) {
-			System.out.println("1 new episode found.");
-		} else {
-			System.out.println(numNewEpisodes+" new episodes found.");
-		}
+		if (numNewEpisodes <= 0) { System.out.println("No new episodes found.\n"); } 
+		else { System.out.println("New Episodes:\n"); } 
 		
-		for (String str : seriesAdded) {
-			System.out.println(str);
-		}
+		int newEpisodesShowsNum = newEpisodes.keySet().size();
 		
-		if (!fileMoves.isEmpty()) {
+		for (String k : newEpisodes.keySet()) {
+			List<Episode> cur = newEpisodes.get(k);
 			
-			System.out.println("\nMoving files");
+			int num = cur.size();
 			
-			for (FileMove move : fileMoves) {
+			if (numNewEpisodes <= 6 || (newEpisodesShowsNum == 1 && num <= 6)) {
 				
-				if (move.dst.exists()) {
+				for (Episode ep : cur) {
 					
-					if (Files.getSize(move.dst) > Files.getSize(move.src)) {
-						
-						continue;
-						
-					} else {
-						
-						move.dst.delete();
-					}
+					String s = ep.season+"";
+					for (int i = 0, l = s.length(); i < 2-l; i++) { s = "0"+s; }
 					
+					String e = ep.episode+"";
+					for (int i = 0, l = e.length(); i < 2-l; i++) { e = "0"+e; }
+					
+					System.out.println(shows.get(k).name+" - S"+s+"E"+e);
 				}
 				
-				Files.moveFileUsingOS(move.src, move.dst);
+			} else {
+				
+				System.out.println(num+" new episode"+(num > 1 ? "s" : "")+" of \""+shows.get(k).name+"\"");
 			}
-			
 		}
 		
-		if (seriesAdded.size() > 0) {
-			
-			System.out.println("Renaming episodes for database");
-		}
+		System.out.println("");
+	}
+	
+	
+	private static void renameEpisodes() {
 		
 		for (String showAlias : newEpisodes.keySet()) {
 			
-			String show = shows.get(showAlias).name;
+			Show show = shows.get(showAlias);
+			show.load();
 			
-			String showUrlName = show.replace(' ', '+');
+			File tmpfile = new File(show.seriesPath.replace("\\", "/")+show.name+"/tmp.zip");
+			Web.downloadFile(show.url, tmpfile);
+			
+			
+			ZipEntry infoEntry = null;
+			ZipFile zipFile = null;
+			
+			try {
+				
+				zipFile = new ZipFile(tmpfile);
+				
+				infoEntry = zipFile.getEntry(show.lang+".xml");
+				if (infoEntry == null) { infoEntry = zipFile.getEntry("en.xml"); }
+				
+			} catch (Exception e) { }
+			
+			if (infoEntry == null) {
+				
+				if (zipFile != null) { try { zipFile.close(); } catch (Exception e) {} }
+				tmpfile.delete();
+				continue;
+			}
 			
 			SAXReader r = new SAXReader();
 			Document document = null;
-			try { document = r.read(new URL("http://thetvdb.com/api/GetSeries.php?seriesname="+showUrlName)); }
-			catch (Exception e) { continue; }
-			
-			String id = "";
-			try { id = document.getRootElement().element("Series").element("seriesid").getText(); }
-			catch (Exception | Error e) { continue; }
-			
-			String seriesUrl = "http://thetvdb.com/api/"+API_KEY+"/series/"+id+"/all/en.xml";
-			
-			try { document = r.read(new URL(seriesUrl)); }
-			catch (Exception | Error e) { continue; }
+			try { document = r.read(zipFile.getInputStream(infoEntry)); }
+			catch (Exception | Error e) { tmpfile.delete(); continue; }
 			
 			Element rootElem = document.getRootElement();
 			
+			Element showElement = rootElem.elements().stream().filter(e -> e.getName().equalsIgnoreCase("series")).findAny().get();
+			
 			for (Episode episode : newEpisodes.get(showAlias)) {
 				
-				String newName = "";
+				Element episodeElement = getEpisodeElem(rootElem, episode.season, episode.episode, show.absNr);
+				if (episodeElement == null) { continue; }
 				
-				for (Iterator<Element> i = rootElem.elements().iterator(); i.hasNext();) {
-					Element elem = i.next();
-					
-					if (elem.getName().equalsIgnoreCase("episode")) {
-						
-						int s = Integer.parseInt(elem.element("SeasonNumber").getText());
-						int e = Integer.parseInt(elem.element("EpisodeNumber").getText());
-						
-						int absE = -1;
-						try { absE = (int)Double.parseDouble(elem.element("absolute_number").getText().trim()); } catch (Exception | Error ex) { }
-						
-						if ((shows.get(showAlias).absNr && absE == episode.episode) || (s == episode.season && e == episode.episode)) {
-							
-							newName = elem.element("EpisodeName").getText();
-							
-							break;
-						}
-						
-					}
-					
-				}
+				String newName = episodeElement.elementTextTrim("EpisodeName");
 				
 				String extension = episode.dir.substring(episode.dir.lastIndexOf('.'));
 				
@@ -491,140 +719,51 @@ public class Main {
 				
 				epFile.renameTo(newFile);
 				
+				if (show.local) {
+					
+					show.saveEpisodeMetadata(newFile, episodeElement);
+				}
 			}
 			
+			if (show.local) {
+				
+				show.saveNFO(showElement);
+				show.updateMedia(showElement, zipFile);
+			}
+			
+			if (zipFile != null) { try { zipFile.close(); } catch (Exception e) {} }
+			tmpfile.delete();
+			
 		}
 		
-		int subs = 0;
-		if (subNeed.size() > 0) { subs = 1; }
+		if (!newEpisodes.isEmpty()) { System.out.println(""); }
+	}
+	
+	
+	private static Element getEpisodeElem(Element rootElem, int season, int episode, boolean absNr) {
 		
-		if (subs == 1) {
+		for (Iterator<Element> i = rootElem.elementIterator(); i.hasNext();) {
+			Element elem = i.next();
 			
-			System.out.println("Pulling subtitles");
-			
-		}
-		
-		ExecutorService exec = Executors.newFixedThreadPool(MAX_THREADS);
-		try {
-			
-			for (final String dir : subNeed.keySet()) {
+			if (elem.getName().equalsIgnoreCase("episode")) {
 				
-				String lang = subNeed.get(dir);
+				int s = Integer.parseInt(elem.elementTextTrim("SeasonNumber"));
+				int e = Integer.parseInt(elem.elementTextTrim("EpisodeNumber"));
 				
-				File seasonDir = new File(dir);
-				List<File> sfiles = Files.getFilesRecursive(seasonDir.getAbsolutePath());
+				int absE = -1;
+				try { absE = (int)Double.parseDouble(elem.element("absolute_number").getText().trim()); } catch (Exception | Error ex) { }
 				
-				for (final File file : sfiles) {
+				if ((absNr && absE == episode) || (s == season && e == episode)) {
 					
-					if (isVideoFile(file)) {
-						
-						String name = file.getName().toLowerCase();
-						name = name.substring(0, name.length()-4);
-						
-						boolean sub = false;
-						
-						for (File sfile : sfiles) {
-							
-							String sname = sfile.getName().toLowerCase();
-							
-							if (sfile != file && sname.contains(name) && sname.endsWith(".srt")) {
-								
-								sub = true;
-								break;
-							}
-						}
-						
-						if (!sub) {
-							
-							exec.submit(new Callable<Void>(){
-								@Override
-								public Void call() throws Exception {
-									
-									Runtime runtime = Runtime.getRuntime();
-									try {
-										Process process = runtime.exec("filebot -get-subtitles \""+file.getAbsolutePath()+"\" --lang "+lang);
-										try { process.waitFor(); } catch (Exception e) { e.printStackTrace(); }
-									} catch (IOException e) { e.printStackTrace(); }
-									
-									return null;
-								}
-							});
-							
-						}
-						
-					}
-					
+					return elem;
 				}
 				
 			}
-			
-		} finally {
-			
-			exec.shutdown();
-			
 		}
 		
-		try {
-			exec.awaitTermination(15L, TimeUnit.MINUTES);
-		} catch (Exception e1) { e1.printStackTrace(); }
-		
-		System.out.println("Done;\ntips_fedora();");
-		
-		try { Thread.sleep(1500); } catch (Exception e) { e.printStackTrace(); }
-		
+		return null;
 	}
 	
-	private static List<Element> readSettingsXML() {
-		
-		String path = Main.class.getProtectionDomain().getCodeSource().getLocation().getPath();
-		path = path.replace("%20", " ");
-		path = path.substring(1, path.lastIndexOf('/'));
-		
-		File file = new File(path+"/dlScraper_settings.xml");
-		
-		if (!file.exists()) {
-			
-			File alt = new File("settings.xml");
-			
-			if (alt.exists()) { 
-				
-				alt.renameTo(file);
-				
-			} else {
-				
-				Document doc =  DocumentHelper.createDocument();
-				
-				Element root = doc.addElement("root");
-				
-				root.addElement("moviesFolder").addAttribute("folder", "path to your moviefolder");
-				root.addElement("dlFolder").addAttribute("folder", "path to your downloadfolder");
-				
-				Element alias = root.addElement("seriesFolder").addAttribute("folder", "path to your seriesfolder").addElement("alias");
-				alias.addAttribute("seriesName", "Game of Thrones");
-				alias.addAttribute("aliasName", "got");
-				
-				return new ArrayList<Element>();
-			}
-			
-		}
-		
-		SAXReader reader = new SAXReader();
-		Document doc = null;
-		try {
-			doc = reader.read(file);
-		} catch (DocumentException e) { e.printStackTrace(); }
-		
-		Element root = doc.getRootElement();
-		ArrayList<Element> elems = new ArrayList<Element>();
-		
-		for (Iterator<Element> i = root.elements().iterator(); i.hasNext();) {
-			Element elem = i.next();
-			
-			elems.add(elem);
-		}
-		
-		return elems;
-	}
 	
 	private static File getShowDir(Show show) {
 		
@@ -1057,21 +1196,6 @@ public class Main {
 		
 	}
 	
-	public static class Show {
-		
-		public String name, seriesPath;
-		
-		/** absolute episode numbering */
-		public boolean absNr;
-		
-		public Show(String name, String seriesPath, boolean absNr) {
-			
-			this.name = name;
-			this.seriesPath = seriesPath;
-			this.absNr = absNr;
-		}
-		
-	}
 	
 	public static class FileMove {
 		
@@ -1116,6 +1240,7 @@ public class Main {
 		return fileName;
 	}
 	
+	
 	private static void setAbspath() {
 		
 		try {
@@ -1133,6 +1258,70 @@ public class Main {
 			}
 			
 		} catch (Exception e) { e.printStackTrace(); }
+	}
+	
+	private static void parseArgs(String[] args) {
+		
+		List<String> tmp = new ArrayList<String>(args.length);
+		for (String a : args) { tmp.add(a.trim().toLowerCase()); }
+		args = tmp.toArray(new String[0]);
+		
+		for (int i = 0; i < args.length; i++) {
+			String arg = args[i];
+			String nextArg = (i < args.length-1) ? args[i+1] : null;
+			
+			if (arg.equals("--fix-all")) {
+				
+				mode = MODE_FIX;
+				
+			} else if (arg.equals("--refresh-all")) {
+				
+				mode = MODE_REFRESH;
+				
+			} else if (nextArg != null) {
+				
+				if (arg.equals("-f") || arg.equals("--fix")) {
+					
+					mode = MODE_FIX;
+					modeArg = nextArg;
+					
+				} else if (arg.equals("-r") || arg.equals("--refresh")) {
+					
+					mode = MODE_REFRESH;
+					modeArg = nextArg;
+					
+				}
+			}
+			
+		}
+		
+	}
+	
+	
+	public static boolean parseBoolean(String str) throws Exception {
+		
+		if (str != null) {
+			
+			str = str.trim().toLowerCase();
+			
+			if (str.equals("0") || str.equals("false") || str.equals("no")) { return false; } 
+			if (str.equals("1") || str.equals("true") || str.equals("yes")) { return true; }
+		}
+		
+		throw new Exception();
+	}
+	
+	public static int parseId(String str) throws Exception {
+		
+		if (str != null && !str.trim().isEmpty()) {
+			
+			str = str.trim();
+			int num = -1;
+			try { num = Integer.parseInt(str); } catch (Exception ex) { }
+			if (num >= 0) { return num; }
+		}
+		
+		throw new Exception();
 	}
 	
 }
