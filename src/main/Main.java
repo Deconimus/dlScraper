@@ -41,6 +41,7 @@ public class Main {
 	private static HashMap<String, String> subNeed;
 	
 	public static HashMap<String, CustomScraper> customScrapers;
+	public static HashMap<String, String> loadableCustomScrapers;
 	
 	private static List<String> dlDirs;
 	
@@ -85,6 +86,7 @@ public class Main {
 			System.out.println("Loading custom scrapers");
 			
 			customScrapers = new HashMap<String, CustomScraper>();
+			loadableCustomScrapers = new HashMap<String, String>();
 			loadCustomScrapers();
 		
 			
@@ -125,8 +127,6 @@ public class Main {
 			
 			
 			System.out.println("Done;\ntips_fedora();");
-			
-			try { Thread.sleep(1500); } catch (Exception e) { e.printStackTrace(); }
 			
 			
 		} else if (mode == MODE_FIX || mode == MODE_REFRESH) {
@@ -224,16 +224,12 @@ public class Main {
 						String n = f.getName().substring(0, f.getName().lastIndexOf('.'));
 						String p = d.getAbsolutePath().replace('\\', '/')+"/"+n;
 						
-						System.out.println(p);
-						
 						if (mode == MODE_REFRESH || (!(new File(p+".nfo").exists()) || (!(new File(p+".jpg").exists()) && !(new File(p+".tbn").exists())))) {
 							
 							n = n.toLowerCase();
 							
 							int episode = Integer.parseInt(n.substring(n.indexOf('e')+1, n.indexOf('-')).trim());
 							int season = Integer.parseInt(n.substring(n.indexOf('s')+1, n.indexOf('e')));
-							
-							System.out.println("kek");
 							
 							eps.add(new Triplet<Integer, Integer, File>(season, episode, f));
 						}
@@ -248,7 +244,6 @@ public class Main {
 					if (elem == null) { continue; }
 					
 					show.saveEpisodeMetadata(ep.z, elem);
-					
 				}
 				
 				tmpfile.delete();
@@ -270,23 +265,13 @@ public class Main {
 			if (f.isDirectory() && f.getName().toLowerCase().contains("scraper")) { moduledir = f; }
 		}
 		
-		JythonFactory jf = JythonFactory.getInstance();
-		
 		if (moduledir != null && moduledir.exists()) {
 			
 			for (File f : moduledir.listFiles()) {
 				String fn = f.getName().toLowerCase();
+				if (!fn.endsWith(".py")) { continue; }
 				
-				if (fn.endsWith(".py")) {
-					
-					CustomScraper cs = (CustomScraper)jf.getJythonObject("main.CustomScraper", f.getAbsolutePath().replace("\\", "/"));
-					
-					if (cs != null) {
-						
-						customScrapers.put(cs.getAlias(), cs);
-					}
-				}
-				
+				loadableCustomScrapers.put(fn.substring(0, fn.length()-3), f.getAbsolutePath().replace("\\", "/"));
 			}
 		}
 		
@@ -1219,6 +1204,18 @@ public class Main {
 			if (customScrapers.containsKey(prefix)) {
 				
 				return customScrapers.get(prefix);
+			}
+			
+			if (loadableCustomScrapers.containsKey(prefix)) {
+				
+				CustomScraper cs = (CustomScraper)JythonFactory.getJythonObject("main.CustomScraper", loadableCustomScrapers.get(prefix));
+				
+				if (cs != null) {
+					
+					customScrapers.put(prefix, cs);
+					
+					return cs;
+				}
 			}
 			
 		}

@@ -88,7 +88,6 @@ public class XBMCMetadata {
 		}
 		
 		saveDocument(doc, out);
-		
 	}
 	
 	
@@ -217,6 +216,7 @@ public class XBMCMetadata {
 		try {
 			
 			OutputFormat format = OutputFormat.createPrettyPrint();
+			format.setEncoding("UTF-8");
 			
 			XMLWriter xmlWriter = new XMLWriter(new FileWriter(out), format);
 			xmlWriter.write(doc);

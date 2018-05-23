@@ -5,17 +5,6 @@ import org.python.util.PythonInterpreter;
 import com.sun.xml.internal.ws.util.StringUtils;
 
 public class JythonFactory {
-	private static JythonFactory instance = null;
-	
-	public synchronized static JythonFactory getInstance(){
-		
-		if(instance == null){
-			
-			instance = new JythonFactory();
-		}
-		
-        return instance;
-	}
 	
 	public static Object getJythonObject(String interfaceName, String pathToJythonModule) {
 		
