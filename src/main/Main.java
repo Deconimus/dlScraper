@@ -40,6 +40,8 @@ public class Main {
 	private static HashMap<String, Show> shows;
 	private static HashMap<String, String> subNeed;
 	
+	private static String curShowsFolder = "", curAnimeFolder = "";
+	
 	public static HashMap<String, CustomScraper> customScrapers;
 	public static HashMap<String, String> loadableCustomScrapers;
 	
@@ -154,7 +156,6 @@ public class Main {
 						if (s.name.toLowerCase().equals(modeArg)) { sh.add(s); break; }
 					}
 				}
-				
 			}
 			
 			if (sh.isEmpty()) {
@@ -377,7 +378,20 @@ public class Main {
 			} else if (elem.getName().equalsIgnoreCase("moviesFolder")) {
 				
 				moviesDir = elem.attributeValue("folder");
+				moviesDir = moviesDir.replace("\\", "/");
+				if (!moviesDir.endsWith("/")) { moviesDir += "/"; }
 				
+			} else if (elem.getName().equalsIgnoreCase("curSeriesFolder") || elem.getName().equalsIgnoreCase("curShowsFolder") ) {
+				
+				curShowsFolder = elem.attributeValue("folder");
+				curShowsFolder = curShowsFolder.replace("\\", "/");
+				if (!curShowsFolder.endsWith("/")) { curShowsFolder += "/"; }
+				
+			} else if (elem.getName().equalsIgnoreCase("curAnimeFolder")) {
+				
+				curAnimeFolder = elem.attributeValue("folder");
+				curAnimeFolder = curAnimeFolder.replace("\\", "/");
+				if (!curAnimeFolder.endsWith("/")) { curAnimeFolder += "/"; }
 			}
 		}
 		
@@ -400,7 +414,22 @@ public class Main {
 					String curAlias = null;
 					String str = file.getName().split(" ")[0].toLowerCase();
 					
-					if (shows.containsKey(file.getName().split(" ")[0].toLowerCase())) {
+					if ((!curAnimeFolder.isEmpty() || !curShowsFolder.isEmpty()) && (str.startsWith("series=") || str.startsWith("show=") || str.startsWith("anime="))) {
+						
+						String seriesName = file.getName().substring(file.getName().indexOf("=")+1);
+						String seriesPath;
+						
+						if (!curShowsFolder.isEmpty() && (!str.startsWith("anime=") || curAnimeFolder.isEmpty()))
+							seriesPath = curShowsFolder;
+						else
+							seriesPath = curAnimeFolder;
+						
+						str = "" + System.currentTimeMillis() + "" + System.nanoTime(); // temporary alias token
+						
+						shows.put(str, new Show(seriesName, seriesPath, false, -1, default_lang, default_local));
+					}
+					
+					if (shows.containsKey(str)) {
 						
 						curAlias = str;
 						
@@ -507,9 +536,7 @@ public class Main {
 								} else {
 									
 									episodeFile.delete();
-									
 								}
-								
 							}
 							
 							fileMoves.add(new FileMove(subFile, episodeFile));
@@ -528,7 +555,6 @@ public class Main {
 								episodes.add(newEp);
 								
 								newEpisodes.put(curAlias, episodes);
-								
 							}
 							
 							episodesOfSeries++;
@@ -553,9 +579,7 @@ public class Main {
 								if (lang.equals("en")) { lang = "eng"; }
 								
 								subNeed.put(seasonDirs.get(seasonDirs.size()-1), lang);
-								
 							}
-							
 						}
 						
 						//file.delete();
@@ -742,10 +766,8 @@ public class Main {
 					
 					return elem;
 				}
-				
 			}
 		}
-		
 		return null;
 	}
 	
@@ -754,6 +776,8 @@ public class Main {
 		
 		File dir = new File(show.seriesPath);
 		File[] files = dir.listFiles();
+		
+		if (files == null) { return null; }
 		
 		for (File file : files) {
 			
@@ -765,7 +789,6 @@ public class Main {
 				}
 			}
 		}
-		
 		return null;
 	}
 	

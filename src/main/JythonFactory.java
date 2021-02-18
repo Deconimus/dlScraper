@@ -2,8 +2,6 @@ package main;
 
 import org.python.util.PythonInterpreter;
 
-import com.sun.xml.internal.ws.util.StringUtils;
-
 public class JythonFactory {
 	
 	public static Object getJythonObject(String interfaceName, String pathToJythonModule) {
